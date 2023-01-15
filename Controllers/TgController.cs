@@ -25,6 +25,9 @@ public class TgController
     private static bool _isRemovingGame;
     private static bool _isAddingDeveloper;
     private static bool _isRemovingDeveloper;
+    private static bool _gettingGameByName;
+    private static bool _gettingGamesByCategory;
+    private static bool _gettingGamesByDeveloper;
 
     public TgController()
     {
@@ -217,6 +220,60 @@ public class TgController
                 
             }
         }
+        else if (_gettingGameByName)
+        {
+            _gettingGameByName = false;
+            string msg = update.Message.Text.Trim();
+            var game = new GamesController().GetGameByName(msg);
+            var category = new CategoriesController().GetAllCategories().FirstOrDefault(x => x.Id == game.CategoryId);
+            var developer = new DeveloperController().GetAll().FirstOrDefault(x => x.Id == game.DeveloperId);
+            var str = $"Title: {game.Name}\nDescription: {game.Description}\nDeveloper: {developer.Name}\n" +
+                      $"Category: {category.Title}Price: {game.Price}₴";
+            await TgBotClient.Instance.Client.SendPhotoAsync(update.Message.From.Id, photo:game.PhotoLink ?? DEFAULT_GAME_ICON ,
+                caption:str, replyMarkup:new InlineKeyboardMarkup(InlineKeyboardButton.WithCallbackData("Order", "orderGame")));
+        }
+        else if (_gettingGamesByCategory)
+        {
+            _gettingGamesByCategory = false;
+            int categoryId = new CategoriesController().GetAllCategories()
+                .FirstOrDefault(x => x.Title == update.Message.Text).Id;
+            if(categoryId == 0)
+                await TgBotClient.Instance.Client.SendTextMessageAsync(update.Message.From.Id, "Cannot find this category");
+            var games = new GamesController().GetGamesByCategory(categoryId);
+            var categories = new CategoriesController().GetAllCategories();
+            var developers = new DeveloperController().GetAll();
+            foreach (var game in games)
+            {
+                var category = categories.FirstOrDefault(x => x.Id == game.CategoryId);
+                var developer = developers.FirstOrDefault(x => x.Id == game.DeveloperId);
+                var str = $"Title: {game.Name}\nDescription: {game.Description}\nDeveloper: {developer.Name}\n" +
+                          $"Category: {category.Title}\nPrice: {game.Price}₴";
+                await TgBotClient.Instance.Client.SendPhotoAsync(update.Message.From.Id, photo:game.PhotoLink ?? DEFAULT_GAME_ICON ,
+                caption:str, replyMarkup:new InlineKeyboardMarkup(InlineKeyboardButton.WithCallbackData("Order", "orderGame")));
+            }
+            
+        }
+        else if (_gettingGamesByDeveloper)
+        {
+            _gettingGamesByDeveloper = false;
+            int developerId = new DeveloperController().GetAll()
+                .FirstOrDefault(x => x.Name == update.Message.Text).Id;
+            if(developerId == 0)
+                await TgBotClient.Instance.Client.SendTextMessageAsync(update.Message.From.Id, "Cannot find this developer");
+            var games = new GamesController().GetGamesByDeveloper(developerId);
+            var categories = new CategoriesController().GetAllCategories();
+            var developers = new DeveloperController().GetAll();
+            foreach (var game in games)
+            {
+                var category = categories.FirstOrDefault(x => x.Id == game.CategoryId);
+                var developer = developers.FirstOrDefault(x => x.Id == game.DeveloperId);
+                var str = $"Title: {game.Name}\nDescription: {game.Description}\nDeveloper: {developer.Name}\n" +
+                          $"Category: {category.Title}\nPrice: {game.Price}₴";
+                await TgBotClient.Instance.Client.SendPhotoAsync(update.Message.From.Id, photo:game.PhotoLink ?? DEFAULT_GAME_ICON ,
+                    caption:str, replyMarkup:new InlineKeyboardMarkup(InlineKeyboardButton.WithCallbackData("Order", "orderGame")));
+            }
+
+        }
     }
 
 
@@ -264,10 +321,15 @@ public class TgController
                 }
                 break;
             case "showGames":
-                foreach (var category in new GamesController().GetAllGames())
+                var categories = new CategoriesController().GetAllCategories();
+                var developers = new DeveloperController().GetAll();
+                foreach (var game in new GamesController().GetAllGames())
                 {
-                    var str = $"Id:{category.Id}\nTitle: {category.Name}\nDescription: {category.Description}";
-                    await TgBotAdmin.Instance.Client.SendPhotoAsync(update.CallbackQuery.From.Id, photo:category.PhotoLink ?? DEFAULT_GAME_ICON ,
+                    var category = categories.FirstOrDefault(x => x.Id == game.CategoryId);
+                    var developer = developers.FirstOrDefault(x => x.Id == game.DeveloperId);
+                    var str = $"Title: {game.Name}\nDescription: {game.Description}\nDeveloper: {developer.Name}" +
+                              $"\nCategory: {category.Title}\nPrice: {game.Price}₴";
+                    await TgBotAdmin.Instance.Client.SendPhotoAsync(update.CallbackQuery.From.Id, photo:game.PhotoLink ?? DEFAULT_GAME_ICON ,
                         caption:str, replyMarkup:new InlineKeyboardMarkup(InlineKeyboardButton.WithCallbackData("Remove", "removeGame")));
                 }
                 break;
@@ -303,6 +365,57 @@ public class TgController
             {
                 await TgBotAdmin.Instance.Client.SendTextMessageAsync(update.Message.From.Id, 
                     "Game developers:", replyMarkup:_developersInlineMarkup);
+                break;
+            }
+            case "/getall":
+            {
+                var categories = new CategoriesController().GetAllCategories();
+                var developers = new DeveloperController().GetAll();
+                foreach (var game in new GamesController().GetAllGames())
+                {
+                    var category = categories.FirstOrDefault(x => x.Id == game.CategoryId);
+                    var developer = developers.FirstOrDefault(x => x.Id == game.DeveloperId);
+                    var str = $"Title: {game.Name}\nDescription: {game.Description}\nDeveloper: {developer.Name}" +
+                              $"\nCategory: {category.Title}\nPrice: {game.Price}₴";
+                    await TgBotClient.Instance.Client.SendPhotoAsync(update.Message.From.Id, photo:game.PhotoLink ?? DEFAULT_GAME_ICON ,
+                        caption:str, replyMarkup:new InlineKeyboardMarkup(InlineKeyboardButton.WithCallbackData("Order", "orderGame")));
+                }
+                break;
+            }
+            case "/getallcategories":
+            {
+                foreach (var category in new CategoriesController().GetAllCategories())
+                {
+                    var str = $"Title: {category.Title}\nDescription: {category.Description}";
+                    await TgBotClient.Instance.Client.SendTextMessageAsync(update.Message.From.Id, str);
+                }
+                break;
+            }
+            case "/getalldevelopers":
+            {
+                foreach (var category in new DeveloperController().GetAll())
+                {
+                    var str = $"Name: {category.Name}\nDescription: {category.Description}";
+                    await TgBotClient.Instance.Client.SendTextMessageAsync(update.Message.From.Id, str);
+                }
+                break;
+            }
+            case "/getbyname":
+            {
+                await TgBotClient.Instance.Client.SendTextMessageAsync(update.Message.From.Id, "Enter game name:");
+                _gettingGameByName = true;
+                break;
+            }
+            case "/getbycategory":
+            {
+                await TgBotClient.Instance.Client.SendTextMessageAsync(update.Message.From.Id, "Enter category name:");
+                _gettingGamesByCategory = true;
+                break;
+            }
+            case "/getbydeveloper":
+            {
+                await TgBotClient.Instance.Client.SendTextMessageAsync(update.Message.From.Id, "Enter developer name:");
+                _gettingGamesByDeveloper = true;
                 break;
             }
         }
