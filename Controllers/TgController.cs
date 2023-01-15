@@ -32,6 +32,7 @@ public class TgController
     private static bool _gettingGamesByCategory;
     private static bool _gettingGamesByDeveloper;
     private static long _clientIdForSending;
+    private static bool _isSendingMessageToAll;
 
     public TgController()
     {
@@ -298,6 +299,14 @@ public class TgController
             await TgBotClient.Instance.Client.SendTextMessageAsync(_clientIdForSending, update.Message.Text);
             _clientIdForSending = -1;
         }
+        else if (_isSendingMessageToAll)
+        {
+            _isSendingMessageToAll = false;
+            foreach (var user in new UsersController().GetAllUsers())
+            {
+                await TgBotClient.Instance.Client.SendTextMessageAsync(user.TgId, update.Message.Text);
+            }
+        }
     }
     
     private async Task DoCallBackQuery(Update update)
@@ -391,10 +400,28 @@ public class TgController
             }
             case "getActiveOrders":
             {
+                foreach (var order in new OrdersController().GetInProcessOrders())
+                {
+                    string str = $"Id: {order.Id}\nGame Id: {order.GameId}\nUser id: {order.UserId}\nOrder date: {order.OrderDate}\n" +
+                                 $"Orders status id: {order.OrderStatusId}";
+                    await TgBotAdmin.Instance.Client.SendTextMessageAsync(update.CallbackQuery.From.Id, str, 
+                        replyMarkup:new InlineKeyboardMarkup(InlineKeyboardButton.WithCallbackData("Move to history", "moveOrderToHistory")));
+                }
                 break;
             }
             case "getHistoryOrders":
             {
+                foreach (var order in new OrdersController().GetCompleteOrders())
+                {
+                    string str = $"Id: {order.Id}\nGame Id: {order.GameId}\nUser id: {order.UserId}\nOrder date: {order.OrderDate}\n" +
+                                 $"Orders status id: {order.OrderStatusId}";
+                    await TgBotAdmin.Instance.Client.SendTextMessageAsync(update.CallbackQuery.From.Id, str);
+                }
+                break;
+            }
+            case "moveOrderToHistory":
+            {
+                MoveOrderToHistory(update);
                 break;
             }
         }
@@ -510,6 +537,12 @@ public class TgController
                 new UsersController().AddUser(user);
                 break;
             }
+            case "/sendmessagetoall":
+            {
+                _isSendingMessageToAll = true;
+                await TgBotAdmin.Instance.Client.SendTextMessageAsync(update.Message.From.Id, "Enter a message");
+                break;
+            }
         }
     }
 
@@ -531,5 +564,15 @@ public class TgController
         };
         new OrdersController().AddOrder(order);
         await TgBotClient.Instance.Client.SendTextMessageAsync(update.CallbackQuery.From.Id, "You order game");
+    }
+
+    private async void MoveOrderToHistory(Update update)
+    {
+        var strings = update.CallbackQuery.Message.Text.Split('\n');
+        var id = Convert.ToInt32(strings.FirstOrDefault(x => x.Contains("Id:")).
+            Substring(strings.FirstOrDefault(x => x.Contains("Id:")).IndexOf(':')+1).Trim());
+        new OrdersController().MoveOrderToComplete(id);
+        await TgBotAdmin.Instance.Client.SendTextMessageAsync(update.CallbackQuery.From.Id,
+            "Order was moved to history");
     }
 }
