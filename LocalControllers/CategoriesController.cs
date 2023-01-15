@@ -17,10 +17,15 @@ public class CategoriesController
     {
         using (GamesShopContext context = new GamesShopContext())
         {
-            var category =context.Categories.FirstOrDefault(x => x.Id == id);
-            if (category != null)
-                context.Categories.Remove(category);
+            var category = context.Categories.FirstOrDefault(x => x.Id == id);
 
+            if (category != null)
+            {
+                var games = context.Games.Where(x => x.CategoryId == category.Id);
+                context.Games.RemoveRange(games);
+                context.Categories.Remove(category);
+            }
+            
             context.SaveChanges();
         }
     }
