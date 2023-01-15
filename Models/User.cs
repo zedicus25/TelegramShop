@@ -7,7 +7,7 @@ public partial class User
 {
     public int Id { get; set; }
 
-    public int TgId { get; set; }
+    public long? TgId { get; set; }
 
     public string? TgUserName { get; set; }
 

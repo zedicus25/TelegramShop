@@ -25,7 +25,7 @@ public class CategoriesController
                 context.Games.RemoveRange(games);
                 context.Categories.Remove(category);
             }
-            
+
             context.SaveChanges();
         }
     }

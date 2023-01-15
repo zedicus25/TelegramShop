@@ -24,6 +24,6 @@ public class OrdersController
     }
 
     public List<Order> GetCompleteOrders() => new GamesShopContext().Orders.Where(x => x.OrderStatusId == 2).ToList();
-    
+
     public List<Order> GetInProcessOrders() => new GamesShopContext().Orders.Where(x => x.OrderStatusId == 1).ToList();
 }

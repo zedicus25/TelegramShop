@@ -17,7 +17,7 @@ public class GamesController
         using (GamesShopContext context = new GamesShopContext())
         {
             var game = context.Games.FirstOrDefault(x => x.Id == id);
-            if(game == null)
+            if (game == null)
                 return;
             context.Games.Remove(game);
             context.SaveChanges();
@@ -25,13 +25,13 @@ public class GamesController
     }
 
     public List<Game> GetAllGames() => new GamesShopContext().Games.ToList();
-    
+
     public Game GetGameByName(string name) => new GamesShopContext().Games.FirstOrDefault(x => x.Name == name);
-    
-    public List<Game> GetGamesByCategory(int categoryId) => 
+
+    public List<Game> GetGamesByCategory(int categoryId) =>
         new GamesShopContext().Games.Where(x => x.CategoryId == categoryId).ToList();
-    
-    public List<Game> GetGamesByDeveloper(int developerId) => 
+
+    public List<Game> GetGamesByDeveloper(int developerId) =>
         new GamesShopContext().Games.Where(x => x.DeveloperId == developerId).ToList();
 
 }

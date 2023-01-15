@@ -9,6 +9,8 @@ public class UsersController
     {
         using (GamesShopContext context = new GamesShopContext())
         {
+            if(context.Users.FirstOrDefault(x => x.TgId == user.TgId) != null)
+                return;
             context.Users.Add(user);
             context.SaveChanges();
         }
