@@ -20,6 +20,7 @@ public class TgController
     private readonly InlineKeyboardMarkup _categoryInlineMarkup;
     private readonly InlineKeyboardMarkup _gamesInlineMarkup;
     private readonly InlineKeyboardMarkup _developersInlineMarkup;
+    private readonly InlineKeyboardMarkup _ordersInlineMarkup;
     private static bool _isAddingCategory;
     private static bool _isRemovingCategory;
     private static bool _isAddingGame;
@@ -27,8 +28,10 @@ public class TgController
     private static bool _isAddingDeveloper;
     private static bool _isRemovingDeveloper;
     private static bool _gettingGameByName;
+    private static bool _sendingMsgToClient;
     private static bool _gettingGamesByCategory;
     private static bool _gettingGamesByDeveloper;
+    private static long _clientIdForSending;
 
     public TgController()
     {
@@ -50,9 +53,15 @@ public class TgController
             InlineKeyboardButton.WithCallbackData("Remove", "removeDeveloper"),
             InlineKeyboardButton.WithCallbackData("Show all", "showDevelopers"),
         };
+        InlineKeyboardButton[] orderInlineButtons = new[]
+        {
+            InlineKeyboardButton.WithCallbackData("Get active orders", "getActiveOrders"),
+            InlineKeyboardButton.WithCallbackData("Get history orders", "getHistoryOrders"),
+        };
         _categoryInlineMarkup = new InlineKeyboardMarkup(categoryInlineButtons);
         _gamesInlineMarkup = new InlineKeyboardMarkup(gamesInlineButtons);
         _developersInlineMarkup = new InlineKeyboardMarkup(developersInlineButtons);
+        _ordersInlineMarkup = new InlineKeyboardMarkup(orderInlineButtons);
     }
 
     [HttpPost]
@@ -281,9 +290,16 @@ public class TgController
                     replyMarkup: new InlineKeyboardMarkup(InlineKeyboardButton.WithCallbackData("Order", "orderGame")));
             }
         }
+        else if (_sendingMsgToClient)
+        {
+            if(_clientIdForSending == -1)
+                return;
+            _sendingMsgToClient = false;
+            await TgBotClient.Instance.Client.SendTextMessageAsync(_clientIdForSending, update.Message.Text);
+            _clientIdForSending = -1;
+        }
     }
-
-
+    
     private async Task DoCallBackQuery(Update update)
     {
         switch (update.CallbackQuery.Data)
@@ -364,6 +380,23 @@ public class TgController
                 OrderGame(update);
                 break;
             }
+            case "sendMessageToClient":
+            {
+                _sendingMsgToClient = true;
+                var strs = update.CallbackQuery.Message.Text.Split('\n');
+                _clientIdForSending = Convert.ToInt64(strs.FirstOrDefault(x => x.Contains("Tg id:"))
+                    .Substring(strs.FirstOrDefault(x => x.Contains("Tg id:")).IndexOf(':') + 1).Trim());
+                await TgBotAdmin.Instance.Client.SendTextMessageAsync(update.CallbackQuery.From.Id, "Enter a message");
+                break;;
+            }
+            case "getActiveOrders":
+            {
+                break;
+            }
+            case "getHistoryOrders":
+            {
+                break;
+            }
         }
     }
 
@@ -387,6 +420,25 @@ public class TgController
             {
                 await TgBotAdmin.Instance.Client.SendTextMessageAsync(update.Message.From.Id,
                     "Game developers:", replyMarkup: _developersInlineMarkup);
+                break;
+            }
+            case "/orders":
+            {
+                await TgBotAdmin.Instance.Client.SendTextMessageAsync(update.Message.From.Id,
+                    "Orders:", replyMarkup: _ordersInlineMarkup);
+                break;
+            }
+            case "/getallclients":
+            {
+                foreach (var user in new UsersController().GetAllUsers())
+                {
+                    var str = $"Id: {user.Id}\nTg id: {user.TgId}\nUser name: {user.TgUserName}" +
+                              $"\nFirst name: {user.FirstName}\nLast name: {user.LastName}";
+                    await TgBotAdmin.Instance.Client.SendTextMessageAsync(update.Message.From.Id,
+                        str,
+                        replyMarkup: new InlineKeyboardMarkup(
+                            InlineKeyboardButton.WithCallbackData("Send message", "sendMessageToClient")));
+                }
                 break;
             }
             case "/getall":
