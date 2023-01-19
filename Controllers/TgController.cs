@@ -4,6 +4,7 @@ using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
+using TelegramShop.Data;
 using TelegramShop.LocalControllers;
 using TelegramShop.Models;
 using Game = TelegramShop.Models.Game;
@@ -13,8 +14,10 @@ namespace TelegramShop.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class TgController
+public class TgController: ControllerBase
 {
+    private readonly GamesShopContext _dbContext;
+    
     private const string DEFAULT_GAME_ICON = "https://cdn-icons-png.flaticon.com/512/3408/3408506.png";
     private const string DEFAULT_DEVELOPER_ICON = "https://miro.medium.com/max/1400/1*KbYaeKKyTGzNTKjIiBzb3w.png";
     private readonly InlineKeyboardMarkup _categoryInlineMarkup;
@@ -34,7 +37,7 @@ public class TgController
     private static long _clientIdForSending;
     private static bool _isSendingMessageToAll;
 
-    public TgController()
+    public TgController(GamesShopContext context)
     {
         InlineKeyboardButton[] categoryInlineButtons = new[]
         {
@@ -63,6 +66,7 @@ public class TgController
         _gamesInlineMarkup = new InlineKeyboardMarkup(gamesInlineButtons);
         _developersInlineMarkup = new InlineKeyboardMarkup(developersInlineButtons);
         _ordersInlineMarkup = new InlineKeyboardMarkup(orderInlineButtons);
+        _dbContext = context;
     }
 
     [HttpPost]
@@ -109,7 +113,7 @@ public class TgController
                     newCategory.Description = prop.Substring(prop.IndexOf(':') + 1).Trim();
             }
 
-            new CategoriesController().AddCategory(newCategory);
+            new CategoriesController(_dbContext).AddCategory(newCategory);
             await TgBotAdmin.Instance.Client.SendTextMessageAsync(update.Message.From.Id,
                 "New category was added!");
         }
@@ -124,7 +128,7 @@ public class TgController
                     int id = Convert.ToInt32(msg.Substring(msg.IndexOf(':')).Trim());
                     if (id <= 0)
                         throw new ArgumentException("Id cannot be negative or zero!");
-                    new CategoriesController().RemoveCategory(id);
+                    new CategoriesController(_dbContext).RemoveCategory(id);
                     await TgBotAdmin.Instance.Client.SendTextMessageAsync(update.Message.From.Id,
                         "Category was removed! Games in this category also was removed!");
                 }
@@ -150,7 +154,7 @@ public class TgController
                     newDeveloper.PhotoLink = prop.Substring(prop.IndexOf(':') + 1).Trim();
             }
 
-            new DeveloperController().AddDeveloper(newDeveloper);
+            new DeveloperController(_dbContext).AddDeveloper(newDeveloper);
             await TgBotAdmin.Instance.Client.SendTextMessageAsync(update.Message.From.Id,
                 "New developer was added!");
         }
@@ -165,7 +169,7 @@ public class TgController
                     int id = Convert.ToInt32(msg.Substring(msg.IndexOf(':')).Trim());
                     if (id <= 0)
                         throw new ArgumentException("Id cannot be negative or zero!");
-                    new DeveloperController().RemoveDeveloper(id);
+                    new DeveloperController(_dbContext).RemoveDeveloper(id);
                     await TgBotAdmin.Instance.Client.SendTextMessageAsync(update.Message.From.Id,
                         "Developer was removed! Games this developers also removed!");
                 }
@@ -205,7 +209,7 @@ public class TgController
                     "Incorrect format!");
             }
 
-            new GamesController().AddGame(newGame);
+            new GamesController(_dbContext).AddGame(newGame);
             await TgBotAdmin.Instance.Client.SendTextMessageAsync(update.Message.From.Id,
                 "New game was added!");
         }
@@ -220,7 +224,7 @@ public class TgController
                     int id = Convert.ToInt32(msg.Substring(msg.IndexOf(':')).Trim());
                     if (id <= 0)
                         throw new ArgumentException("Id cannot be negative or zero!");
-                    new GamesController().RemoveGame(id);
+                    new GamesController(_dbContext).RemoveGame(id);
                     await TgBotAdmin.Instance.Client.SendTextMessageAsync(update.Message.From.Id,
                         "Game was removed!");
                 }
@@ -235,9 +239,9 @@ public class TgController
         {
             _gettingGameByName = false;
             string msg = update.Message.Text.Trim();
-            var game = new GamesController().GetGameByName(msg);
-            var category = new CategoriesController().GetAllCategories().FirstOrDefault(x => x.Id == game.CategoryId);
-            var developer = new DeveloperController().GetAll().FirstOrDefault(x => x.Id == game.DeveloperId);
+            var game = new GamesController(_dbContext).GetGameByName(msg);
+            var category = new CategoriesController(_dbContext).GetAllCategories().FirstOrDefault(x => x.Id == game.CategoryId);
+            var developer = new DeveloperController(_dbContext).GetAll().FirstOrDefault(x => x.Id == game.DeveloperId);
             var str = $"Title: {game.Name}\nDescription: {game.Description}\nDeveloper: {developer.Name}\n" +
                       $"Category: {category.Title}Price: {game.Price}₴";
             await TgBotClient.Instance.Client.SendPhotoAsync(update.Message.From.Id,
@@ -248,14 +252,14 @@ public class TgController
         else if (_gettingGamesByCategory)
         {
             _gettingGamesByCategory = false;
-            int categoryId = new CategoriesController().GetAllCategories()
+            int categoryId = new CategoriesController(_dbContext).GetAllCategories()
                 .FirstOrDefault(x => x.Title == update.Message.Text).Id;
             if (categoryId == 0)
                 await TgBotClient.Instance.Client.SendTextMessageAsync(update.Message.From.Id,
                     "Cannot find this category");
-            var games = new GamesController().GetGamesByCategory(categoryId);
-            var categories = new CategoriesController().GetAllCategories();
-            var developers = new DeveloperController().GetAll();
+            var games = new GamesController(_dbContext).GetGamesByCategory(categoryId);
+            var categories = new CategoriesController(_dbContext).GetAllCategories();
+            var developers = new DeveloperController(_dbContext).GetAll();
             foreach (var game in games)
             {
                 var category = categories.FirstOrDefault(x => x.Id == game.CategoryId);
@@ -271,14 +275,14 @@ public class TgController
         else if (_gettingGamesByDeveloper)
         {
             _gettingGamesByDeveloper = false;
-            int developerId = new DeveloperController().GetAll()
+            int developerId = new DeveloperController(_dbContext).GetAll()
                 .FirstOrDefault(x => x.Name == update.Message.Text).Id;
             if (developerId == 0)
                 await TgBotClient.Instance.Client.SendTextMessageAsync(update.Message.From.Id,
                     "Cannot find this developer");
-            var games = new GamesController().GetGamesByDeveloper(developerId);
-            var categories = new CategoriesController().GetAllCategories();
-            var developers = new DeveloperController().GetAll();
+            var games = new GamesController(_dbContext).GetGamesByDeveloper(developerId);
+            var categories = new CategoriesController(_dbContext).GetAllCategories();
+            var developers = new DeveloperController(_dbContext).GetAll();
             foreach (var game in games)
             {
                 var category = categories.FirstOrDefault(x => x.Id == game.CategoryId);
@@ -302,7 +306,7 @@ public class TgController
         else if (_isSendingMessageToAll)
         {
             _isSendingMessageToAll = false;
-            foreach (var user in new UsersController().GetAllUsers())
+            foreach (var user in new UsersController(_dbContext).GetAllUsers())
             {
                 await TgBotClient.Instance.Client.SendTextMessageAsync(user.TgId, update.Message.Text);
             }
@@ -345,7 +349,7 @@ public class TgController
                     "Enter id developer for removing in format:\nId:content");
                 break;
             case "showCategories":
-                foreach (var category in new CategoriesController().GetAllCategories())
+                foreach (var category in new CategoriesController(_dbContext).GetAllCategories())
                 {
                     var str = $"Id:{category.Id}\nTitle: {category.Title}\nDescription: {category.Description}";
                     await TgBotAdmin.Instance.Client.SendTextMessageAsync(update.CallbackQuery.From.Id,
@@ -356,9 +360,9 @@ public class TgController
 
                 break;
             case "showGames":
-                var categories = new CategoriesController().GetAllCategories();
-                var developers = new DeveloperController().GetAll();
-                foreach (var game in new GamesController().GetAllGames())
+                var categories = new CategoriesController(_dbContext).GetAllCategories();
+                var developers = new DeveloperController(_dbContext).GetAll();
+                foreach (var game in new GamesController(_dbContext).GetAllGames())
                 {
                     var category = categories.FirstOrDefault(x => x.Id == game.CategoryId);
                     var developer = developers.FirstOrDefault(x => x.Id == game.DeveloperId);
@@ -373,7 +377,7 @@ public class TgController
 
                 break;
             case "showDevelopers":
-                foreach (var category in new DeveloperController().GetAll())
+                foreach (var category in new DeveloperController(_dbContext).GetAll())
                 {
                     var str = $"Id:{category.Id}\nTitle: {category.Name}\nDescription: {category.Description}";
                     await TgBotAdmin.Instance.Client.SendPhotoAsync(update.CallbackQuery.From.Id,
@@ -400,7 +404,7 @@ public class TgController
             }
             case "getActiveOrders":
             {
-                foreach (var order in new OrdersController().GetInProcessOrders())
+                foreach (var order in new OrdersController(_dbContext).GetInProcessOrders())
                 {
                     string str = $"Id: {order.Id}\nGame Id: {order.GameId}\nUser id: {order.UserId}\nOrder date: {order.OrderDate}\n" +
                                  $"Orders status id: {order.OrderStatusId}";
@@ -411,7 +415,7 @@ public class TgController
             }
             case "getHistoryOrders":
             {
-                foreach (var order in new OrdersController().GetCompleteOrders())
+                foreach (var order in new OrdersController(_dbContext).GetCompleteOrders())
                 {
                     string str = $"Id: {order.Id}\nGame Id: {order.GameId}\nUser id: {order.UserId}\nOrder date: {order.OrderDate}\n" +
                                  $"Orders status id: {order.OrderStatusId}";
@@ -457,7 +461,7 @@ public class TgController
             }
             case "/getallclients":
             {
-                foreach (var user in new UsersController().GetAllUsers())
+                foreach (var user in new UsersController(_dbContext).GetAllUsers())
                 {
                     var str = $"Id: {user.Id}\nTg id: {user.TgId}\nUser name: {user.TgUserName}" +
                               $"\nFirst name: {user.FirstName}\nLast name: {user.LastName}";
@@ -470,9 +474,9 @@ public class TgController
             }
             case "/getall":
             {
-                var categories = new CategoriesController().GetAllCategories();
-                var developers = new DeveloperController().GetAll();
-                foreach (var game in new GamesController().GetAllGames())
+                var categories = new CategoriesController(_dbContext).GetAllCategories();
+                var developers = new DeveloperController(_dbContext).GetAll();
+                foreach (var game in new GamesController(_dbContext).GetAllGames())
                 {
                     var category = categories.FirstOrDefault(x => x.Id == game.CategoryId);
                     var developer = developers.FirstOrDefault(x => x.Id == game.DeveloperId);
@@ -489,7 +493,7 @@ public class TgController
             }
             case "/getallcategories":
             {
-                foreach (var category in new CategoriesController().GetAllCategories())
+                foreach (var category in new CategoriesController(_dbContext).GetAllCategories())
                 {
                     var str = $"Title: {category.Title}\nDescription: {category.Description}";
                     await TgBotClient.Instance.Client.SendTextMessageAsync(update.Message.From.Id, str);
@@ -499,7 +503,7 @@ public class TgController
             }
             case "/getalldevelopers":
             {
-                foreach (var category in new DeveloperController().GetAll())
+                foreach (var category in new DeveloperController(_dbContext).GetAll())
                 {
                     var str = $"Name: {category.Name}\nDescription: {category.Description}";
                     await TgBotClient.Instance.Client.SendTextMessageAsync(update.Message.From.Id, str);
@@ -534,7 +538,7 @@ public class TgController
                     FirstName = update.Message.From.FirstName,
                     LastName = update.Message.From.LastName
                 };
-                new UsersController().AddUser(user);
+                new UsersController(_dbContext).AddUser(user);
                 break;
             }
             case "/sendmessagetoall":
@@ -552,8 +556,8 @@ public class TgController
         var name = strings.FirstOrDefault(x => x.Contains("Title:")).
             Substring(strings.FirstOrDefault(x => x.Contains("Title:")).IndexOf(':')+1).Trim();
 
-        int gameId = new GamesController().GetGameByName(name).Id;
-        int userId = new UsersController().GetAllUsers().FirstOrDefault(x => x.TgId == update.CallbackQuery.From.Id).Id;
+        int gameId = new GamesController(_dbContext).GetGameByName(name).Id;
+        int userId = new UsersController(_dbContext).GetAllUsers().FirstOrDefault(x => x.TgId == update.CallbackQuery.From.Id).Id;
         
         Order order = new Order()
         {
@@ -562,7 +566,7 @@ public class TgController
             OrderDate = DateTime.Now,
             OrderStatusId = 1
         };
-        new OrdersController().AddOrder(order);
+        new OrdersController(_dbContext).AddOrder(order);
         await TgBotClient.Instance.Client.SendTextMessageAsync(update.CallbackQuery.From.Id, "You order game");
     }
 
@@ -571,7 +575,7 @@ public class TgController
         var strings = update.CallbackQuery.Message.Text.Split('\n');
         var id = Convert.ToInt32(strings.FirstOrDefault(x => x.Contains("Id:")).
             Substring(strings.FirstOrDefault(x => x.Contains("Id:")).IndexOf(':')+1).Trim());
-        new OrdersController().MoveOrderToComplete(id);
+        new OrdersController(_dbContext).MoveOrderToComplete(id);
         await TgBotAdmin.Instance.Client.SendTextMessageAsync(update.CallbackQuery.From.Id,
             "Order was moved to history");
     }

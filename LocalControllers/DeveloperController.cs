@@ -1,32 +1,35 @@
+using TelegramShop.Data;
 using TelegramShop.Models;
 
 namespace TelegramShop.LocalControllers;
 
 public class DeveloperController
 {
+    private GamesShopContext _dbContext;
+
+    public DeveloperController(GamesShopContext context)
+    {
+        _dbContext = context;
+    }
     public void AddDeveloper(Developer developer)
     {
-        using (GamesShopContext context = new GamesShopContext())
-        {
-            context.Developers.Add(developer);
-            context.SaveChanges();
-        }
+      
+            _dbContext.Developers.Add(developer);
+            _dbContext.SaveChanges();
     }
 
     public void RemoveDeveloper(int id)
     {
-        using (GamesShopContext context = new GamesShopContext())
-        {
-            var dev = context.Developers.FirstOrDefault(x => x.Id == id);
+      
+            var dev = _dbContext.Developers.FirstOrDefault(x => x.Id == id);
             if (dev != null)
             {
-                var games = context.Games.Where(x => x.DeveloperId == dev.Id);
-                context.Games.RemoveRange(games);
-                context.Developers.Remove(dev);
-                context.SaveChanges();
+                var games = _dbContext.Games.Where(x => x.DeveloperId == dev.Id);
+                _dbContext.Games.RemoveRange(games);
+                _dbContext.Developers.Remove(dev);
+                _dbContext.SaveChanges();
             }
-        }
     }
 
-    public List<Developer> GetAll() => new GamesShopContext().Developers.ToList();
+    public List<Developer> GetAll() => _dbContext.Developers.ToList();
 }

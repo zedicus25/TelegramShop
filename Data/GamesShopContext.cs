@@ -1,18 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using TelegramShop.Models;
 
-namespace TelegramShop.Models;
+namespace TelegramShop.Data;
 
 public partial class GamesShopContext : DbContext
 {
-    public GamesShopContext()
+    protected readonly IConfiguration Configuration;
+    
+    public GamesShopContext(IConfiguration configuration)
     {
-    }
-
-    public GamesShopContext(DbContextOptions<GamesShopContext> options)
-        : base(options)
-    {
+        Configuration = configuration;
     }
 
     public virtual DbSet<Category> Categories { get; set; }
@@ -28,8 +25,7 @@ public partial class GamesShopContext : DbContext
     public virtual DbSet<User> Users { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see http://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Server=DESKTOP-GLH25AE\\SQLEXPRESS;Database=GamesShop;Trusted_Connection=True;Encrypt=false;");
+        => optionsBuilder.UseSqlServer(Configuration.GetConnectionString("DefaultConnection"));
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
